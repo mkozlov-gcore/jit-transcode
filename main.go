@@ -16,6 +16,9 @@ func main() {
 		log.Fatal("dir is required")
 	}
 
+	http.HandleFunc("/video_jit.m3u8", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, *dir+"/video_jit.m3u8")
+	})
 	http.HandleFunc("/", newHandler(*dir))
 	log.Printf("listening on %s, serving files from %s", *addr, *dir)
 	if err := http.ListenAndServe(*addr, nil); err != nil {
