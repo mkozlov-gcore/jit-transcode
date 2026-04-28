@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-ARG FFMPEG_VERSION=7.1.1
+ARG FFMPEG_VERSION=8.1
 RUN curl -fsSL "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
     | tar -xJ \
     && cd ffmpeg-${FFMPEG_VERSION} \
