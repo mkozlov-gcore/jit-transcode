@@ -8,9 +8,23 @@ import (
 	"testing"
 )
 
+const validPath = "/video_0.ts"
+
+func TestHandlerInvalidPath(t *testing.T) {
+	h := newHandler("/tmp")
+	for _, path := range []string{"/transcode", "/video_.ts", "/video_abc.ts", "/video_0.mp4", "/"} {
+		req := httptest.NewRequest(http.MethodGet, path+"?file=video.mp4&duration=10", nil)
+		w := httptest.NewRecorder()
+		h(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("path %q: expected 404, got %d", path, w.Code)
+		}
+	}
+}
+
 func TestHandlerMissingFile(t *testing.T) {
 	h := newHandler("/tmp")
-	req := httptest.NewRequest(http.MethodGet, "/transcode?duration=10", nil)
+	req := httptest.NewRequest(http.MethodGet, validPath+"?duration=10", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -20,7 +34,7 @@ func TestHandlerMissingFile(t *testing.T) {
 
 func TestHandlerMissingDuration(t *testing.T) {
 	h := newHandler("/tmp")
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=video.mp4", nil)
+	req := httptest.NewRequest(http.MethodGet, validPath+"?file=video.mp4", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -30,7 +44,7 @@ func TestHandlerMissingDuration(t *testing.T) {
 
 func TestHandlerZeroDuration(t *testing.T) {
 	h := newHandler("/tmp")
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=video.mp4&duration=0", nil)
+	req := httptest.NewRequest(http.MethodGet, validPath+"?file=video.mp4&duration=0", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -40,7 +54,7 @@ func TestHandlerZeroDuration(t *testing.T) {
 
 func TestHandlerNegativeDuration(t *testing.T) {
 	h := newHandler("/tmp")
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=video.mp4&duration=-5", nil)
+	req := httptest.NewRequest(http.MethodGet, validPath+"?file=video.mp4&duration=-5", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -50,7 +64,27 @@ func TestHandlerNegativeDuration(t *testing.T) {
 
 func TestHandlerInvalidOffset(t *testing.T) {
 	h := newHandler("/tmp")
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=video.mp4&duration=10&offset=abc", nil)
+	req := httptest.NewRequest(http.MethodGet, validPath+"?file=video.mp4&duration=10&offset=abc", nil)
+	w := httptest.NewRecorder()
+	h(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandlerNegativeOffset(t *testing.T) {
+	h := newHandler("/tmp")
+	req := httptest.NewRequest(http.MethodGet, validPath+"?file=video.mp4&duration=10&offset=-1", nil)
+	w := httptest.NewRecorder()
+	h(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandlerInvalidDurationString(t *testing.T) {
+	h := newHandler("/tmp")
+	req := httptest.NewRequest(http.MethodGet, validPath+"?file=video.mp4&duration=abc", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -60,7 +94,7 @@ func TestHandlerInvalidOffset(t *testing.T) {
 
 func TestHandlerFileNotFound(t *testing.T) {
 	h := newHandler("/tmp")
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=definitely_does_not_exist_xyz.mp4&duration=10", nil)
+	req := httptest.NewRequest(http.MethodGet, validPath+"?file=definitely_does_not_exist_xyz.mp4&duration=10", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
 	if w.Code != http.StatusNotFound {
@@ -71,7 +105,7 @@ func TestHandlerFileNotFound(t *testing.T) {
 func TestHandlerPathTraversal(t *testing.T) {
 	dir := t.TempDir()
 	h := newHandler(dir)
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=../etc/passwd&duration=10", nil)
+	req := httptest.NewRequest(http.MethodGet, validPath+"?file=../etc/passwd&duration=10", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
 	if w.Code == http.StatusOK {
@@ -79,26 +113,6 @@ func TestHandlerPathTraversal(t *testing.T) {
 	}
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 for traversal attempt, got %d", w.Code)
-	}
-}
-
-func TestHandlerNegativeOffset(t *testing.T) {
-	h := newHandler("/tmp")
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=video.mp4&duration=10&offset=-1", nil)
-	w := httptest.NewRecorder()
-	h(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-func TestHandlerInvalidDurationString(t *testing.T) {
-	h := newHandler("/tmp")
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=video.mp4&duration=abc", nil)
-	w := httptest.NewRecorder()
-	h(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
 	}
 }
 
@@ -120,7 +134,7 @@ func TestHandlerIntegration(t *testing.T) {
 	}
 
 	h := newHandler(dir)
-	req := httptest.NewRequest(http.MethodGet, "/transcode?file=input.mp4&offset=5&duration=10", nil)
+	req := httptest.NewRequest(http.MethodGet, "/video_0.ts?file=input.mp4&offset=5&duration=10", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
 

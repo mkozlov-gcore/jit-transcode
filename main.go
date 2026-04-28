@@ -16,7 +16,7 @@ func main() {
 		log.Fatal("dir is required")
 	}
 
-	http.HandleFunc("/transcode", newHandler(*dir))
+	http.HandleFunc("/", newHandler(*dir))
 	log.Printf("listening on %s, serving files from %s", *addr, *dir)
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal(err)

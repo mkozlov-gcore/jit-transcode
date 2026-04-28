@@ -7,12 +7,20 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"time"
 )
 
+var videoSegmentPath = regexp.MustCompile(`^/video_\d+\.ts$`)
+
 func newHandler(dir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !videoSegmentPath.MatchString(r.URL.Path) {
+			http.NotFound(w, r)
+			return
+		}
+
 		q := r.URL.Query()
 
 		file := q.Get("file")
