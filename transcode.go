@@ -98,20 +98,7 @@ func Transcode(opts Options) error {
 	if err := inputFC.SeekFrame(-1, seekTS, astiav.NewSeekFlags(astiav.SeekFlagBackward)); err != nil {
 		return fmt.Errorf("seeking to offset %.2fs: %w", opts.Offset, err)
 	}
-	// Flush decoder buffers after seek by sending a nil packet and draining
-	_ = decoderCtx.SendPacket(nil)
-	{
-		f := astiav.AllocFrame()
-		if f != nil {
-			defer f.Free()
-			for {
-				if err := decoderCtx.ReceiveFrame(f); err != nil {
-					break
-				}
-				f.Unref()
-			}
-		}
-	}
+	// No decoder flush needed: seek happens before any packets are sent to the decoder.
 
 	// --- Scaler ---
 	swsCtx, err := astiav.CreateSoftwareScaleContext(
