@@ -3,27 +3,22 @@ package main
 import (
 	"flag"
 	"log"
+	"net/http"
 )
 
 func main() {
-	input := flag.String("input", "", "path to input video file")
-	output := flag.String("output", "", "path to output .ts file")
-	offset := flag.Float64("offset", 0, "start offset in seconds")
-	duration := flag.Float64("duration", 0, "duration in seconds")
+	dir := flag.String("dir", "", "directory containing input video files")
+	addr := flag.String("addr", ":8080", "HTTP server address")
 	flag.Parse()
 
-	opts := Options{
-		Input:    *input,
-		Output:   *output,
-		Offset:   *offset,
-		Duration: *duration,
-	}
-	if err := opts.Validate(); err != nil {
+	if *dir == "" {
 		flag.Usage()
-		log.Fatal(err)
+		log.Fatal("dir is required")
 	}
 
-	if err := Transcode(opts); err != nil {
+	http.HandleFunc("/transcode", newHandler(*dir))
+	log.Printf("listening on %s, serving files from %s", *addr, *dir)
+	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal(err)
 	}
 }
