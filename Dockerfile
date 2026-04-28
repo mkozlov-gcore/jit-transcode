@@ -2,6 +2,7 @@
 FROM debian:bookworm-slim AS ffmpeg-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     build-essential \
     curl \
     nasm \
@@ -19,8 +20,6 @@ RUN curl -fsSL "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
         --disable-static \
         --disable-programs \
         --disable-doc \
-        --disable-avdevice \
-        --disable-postproc \
         --disable-network \
         --enable-gpl \
         --enable-libx264 \
