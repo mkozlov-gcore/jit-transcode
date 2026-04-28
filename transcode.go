@@ -211,7 +211,9 @@ func Transcode(opts Options) error {
 	defer encodedPkt.Free()
 
 	endSecs := opts.Offset + opts.Duration
-	var outPTS int64
+	// Start PTS at offset so timestamps in the output segment are continuous
+	// relative to the source file (offset * fps frames).
+	outPTS := int64(math.Round(opts.Offset * fpsFloat))
 
 	writeEncodedPackets := func() error {
 		for {
