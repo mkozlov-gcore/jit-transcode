@@ -298,7 +298,6 @@ func Transcode(opts Options) error {
 			if err := encoderCtx.SendFrame(scaledFrame); err != nil {
 				return fmt.Errorf("sending frame to encoder: %w", err)
 			}
-			scaledFrame.Unref()
 
 			if err := writeEncodedPackets(); err != nil {
 				return err
