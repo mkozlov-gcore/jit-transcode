@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     nasm \
     libx264-dev \
+    libgnutls28-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,9 +21,9 @@ RUN curl -fsSL "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
         --disable-static \
         --disable-programs \
         --disable-doc \
-        --disable-network \
         --enable-gpl \
         --enable-libx264 \
+        --enable-gnutls \
     && make -j"$(nproc)" \
     && make install
 
@@ -50,6 +51,7 @@ FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libx264-164 \
+    libgnutls30 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ffmpeg-builder /opt/ffmpeg/lib /opt/ffmpeg/lib
