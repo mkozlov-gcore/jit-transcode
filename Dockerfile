@@ -59,4 +59,4 @@ ENV LD_LIBRARY_PATH=/opt/ffmpeg/lib
 
 EXPOSE 8080
 ENTRYPOINT ["jit-transcode"]
-CMD ["-addr", ":8080", "-dir", "/videos"]
+CMD ["-addr", ":8080"]
