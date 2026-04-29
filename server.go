@@ -5,8 +5,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
@@ -29,7 +29,7 @@ func withCORS(h http.Handler) http.Handler {
 	})
 }
 
-func newHandler(dir string) http.HandlerFunc {
+func newHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !videoSegmentPath.MatchString(r.URL.Path) {
 			http.NotFound(w, r)
@@ -38,9 +38,15 @@ func newHandler(dir string) http.HandlerFunc {
 
 		q := r.URL.Query()
 
-		file := q.Get("file")
-		if file == "" {
+		fileURL := q.Get("file")
+		if fileURL == "" {
 			http.Error(w, "missing parameter: file", http.StatusBadRequest)
+			return
+		}
+
+		u, err := url.ParseRequestURI(fileURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			http.Error(w, "invalid parameter: file must be an http or https URL", http.StatusBadRequest)
 			return
 		}
 
@@ -64,12 +70,6 @@ func newHandler(dir string) http.HandlerFunc {
 			}
 		}
 
-		inputPath := filepath.Join(dir, filepath.Base(file))
-		if _, err := os.Stat(inputPath); os.IsNotExist(err) {
-			http.Error(w, "file not found", http.StatusNotFound)
-			return
-		}
-
 		tmp, err := os.CreateTemp("", "jit-*.ts")
 		if err != nil {
 			http.Error(w, "internal error: "+err.Error(), http.StatusInternalServerError)
@@ -80,7 +80,7 @@ func newHandler(dir string) http.HandlerFunc {
 
 		start := time.Now()
 		if err := Transcode(Options{
-			Input:    inputPath,
+			Input:    fileURL,
 			Output:   tmp.Name(),
 			Offset:   offset,
 			Duration: duration,
