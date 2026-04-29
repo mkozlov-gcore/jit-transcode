@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
+
+const segmentDuration = 4.0
 
 var videoSegmentPath = regexp.MustCompile(`^/video_\d+\.ts$`)
 
@@ -27,6 +31,56 @@ func withCORS(h http.Handler) http.Handler {
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+func manifestHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fileURL := r.URL.Query().Get("file")
+		if fileURL == "" {
+			http.Error(w, "missing parameter: file", http.StatusBadRequest)
+			return
+		}
+
+		u, err := url.ParseRequestURI(fileURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			http.Error(w, "invalid parameter: file must be an http or https URL", http.StatusBadRequest)
+			return
+		}
+
+		totalDuration, err := ProbeDuration(fileURL)
+		if err != nil {
+			http.Error(w, "probe error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		encodedFile := url.QueryEscape(fileURL)
+		numFull := int(totalDuration / segmentDuration)
+		remainder := totalDuration - float64(numFull)*segmentDuration
+
+		var sb strings.Builder
+		sb.WriteString("#EXTM3U\n")
+		sb.WriteString("#EXT-X-VERSION:3\n")
+		sb.WriteString(fmt.Sprintf("#EXT-X-TARGETDURATION:%d\n", int(math.Ceil(segmentDuration))))
+		sb.WriteString("#EXT-X-SEQUENCE:0\n")
+		sb.WriteString("#EXT-X-PLAYLIST-TYPE:VOD\n")
+
+		for i := 0; i < numFull; i++ {
+			offset := float64(i) * segmentDuration
+			sb.WriteString(fmt.Sprintf("#EXTINF:%f,\n", segmentDuration))
+			sb.WriteString(fmt.Sprintf("video_%d.ts?offset=%g&duration=%g&file=%s\n", i, offset, segmentDuration, encodedFile))
+		}
+
+		if remainder > 0.01 {
+			offset := float64(numFull) * segmentDuration
+			sb.WriteString(fmt.Sprintf("#EXTINF:%f,\n", remainder))
+			sb.WriteString(fmt.Sprintf("video_%d.ts?offset=%g&duration=%g&file=%s\n", numFull, offset, remainder, encodedFile))
+		}
+
+		sb.WriteString("#EXT-X-ENDLIST\n")
+
+		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+		fmt.Fprint(w, sb.String())
+	}
 }
 
 func newHandler() http.HandlerFunc {

@@ -35,6 +35,29 @@ func (o Options) Validate() error {
 	return nil
 }
 
+func ProbeDuration(input string) (float64, error) {
+	fc := astiav.AllocFormatContext()
+	if fc == nil {
+		return 0, errors.New("failed to alloc format context")
+	}
+	defer fc.Free()
+
+	if err := fc.OpenInput(input, nil, nil); err != nil {
+		return 0, fmt.Errorf("opening input: %w", err)
+	}
+	defer fc.CloseInput()
+
+	if err := fc.FindStreamInfo(nil); err != nil {
+		return 0, fmt.Errorf("finding stream info: %w", err)
+	}
+
+	dur := fc.Duration()
+	if dur <= 0 {
+		return 0, errors.New("could not determine video duration")
+	}
+	return float64(dur) / float64(astiav.TimeBase), nil
+}
+
 func Transcode(opts Options) error {
 	astiav.SetLogLevel(astiav.LogLevelError)
 

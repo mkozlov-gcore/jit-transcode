@@ -11,6 +11,7 @@ func main() {
 	flag.Parse()
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/video_jit.m3u8", manifestHandler())
 	mux.HandleFunc("/", newHandler())
 	log.Printf("listening on %s", *addr)
 	if err := http.ListenAndServe(*addr, withCORS(mux)); err != nil {

@@ -104,6 +104,73 @@ func TestHandlerInvalidFileScheme(t *testing.T) {
 	}
 }
 
+func TestManifestHandlerMissingFile(t *testing.T) {
+	h := manifestHandler()
+	req := httptest.NewRequest(http.MethodGet, "/video_jit.m3u8", nil)
+	w := httptest.NewRecorder()
+	h(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestManifestHandlerInvalidFileScheme(t *testing.T) {
+	h := manifestHandler()
+	req := httptest.NewRequest(http.MethodGet, "/video_jit.m3u8?file=/local/path.mp4", nil)
+	w := httptest.NewRecorder()
+	h(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestManifestHandlerIntegration(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not found in PATH, skipping integration test")
+	}
+
+	dir := t.TempDir()
+	inputFile := dir + "/input.mp4"
+
+	cmd := exec.Command("ffmpeg", "-y",
+		"-f", "lavfi", "-i", "testsrc=duration=10:size=640x360:rate=25",
+		"-c:v", "libx264", "-t", "10",
+		inputFile,
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("ffmpeg generate failed: %v\n%s", err, out)
+	}
+
+	fileServer := httptest.NewServer(http.FileServer(http.Dir(dir)))
+	defer fileServer.Close()
+
+	h := manifestHandler()
+	req := httptest.NewRequest(http.MethodGet, "/video_jit.m3u8?file="+fileServer.URL+"/input.mp4", nil)
+	w := httptest.NewRecorder()
+	h(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	if !strings.HasPrefix(body, "#EXTM3U") {
+		t.Errorf("expected m3u8 body to start with #EXTM3U, got: %q", body[:min(len(body), 50)])
+	}
+	if !strings.Contains(body, "#EXT-X-ENDLIST") {
+		t.Error("manifest missing #EXT-X-ENDLIST")
+	}
+	if !strings.Contains(body, "#EXT-X-PLAYLIST-TYPE:VOD") {
+		t.Error("manifest missing #EXT-X-PLAYLIST-TYPE:VOD")
+	}
+	if !strings.Contains(body, "video_0.ts") {
+		t.Error("manifest missing first segment video_0.ts")
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/vnd.apple.mpegurl" {
+		t.Errorf("expected Content-Type application/vnd.apple.mpegurl, got %q", ct)
+	}
+}
+
 func TestHandlerIntegration(t *testing.T) {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		t.Skip("ffmpeg not found in PATH, skipping integration test")
